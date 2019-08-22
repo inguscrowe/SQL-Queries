@@ -1,0 +1,59 @@
+Drop Table #TempTT
+Drop Table #TempResults
+
+Declare @CutDate date
+SET @CutDate = '8/1/2016'
+ 
+Select tt.RunNumber into #TempTT from bill_t_TripTicket tt
+join bill_t_ARTransaction ar on ar.RunNumber = tt.RunNumber
+where tt.DateOfService < @CutDate
+group by tt.RunNumber
+having SUM(ar.Amount)!=0
+ 
+Create Table #TempResults (RunNumber varchar(50), PrimaryPayer varchar(50), PrimePayerGroupCode varchar(50), CurrentPayer varchar(50), CPGroupCode varchar(50), Amount Decimal, Age int)
+Declare @PrimTP varchar(50)
+Declare @PrimePC varchar(50)
+Declare @PrimePayer varchar(50)
+Declare @PrimePayerGC varchar(50)
+Declare @CurrentPayer varchar(50)
+Declare @CurrentPayerGC varchar(50)
+Declare @TCode varchar (50)
+Declare @PCode varchar(50)
+Declare @TT varchar(50)
+Declare @AR decimal (9,2)
+Declare @Age int 
+Declare @StartDate date
+ 
+Declare Holder Cursor For
+Select * from #TempTT
+ 
+Open Holder
+Fetch Next from Holder into @TT
+ 
+While @@FETCH_STATUS=0
+Begin
+ 
+ 
+Set @PrimTP = (Select TOP 1 h.TripTicketPayerId from bill_t_TripTicketCurrentPayerHistory h where h.RunNumber = @TT order by h.FromDate asc) 
+Set @PrimePC = (Select tp.PayerCode from bill_t_TripTicketPayer tp where tp.TripTicketPayerId = @PrimTP)
+Set @PrimePayer = (Select payer.Name from bill_c_Payer payer WHERE payer.PayerCode = @PrimePC)
+Set @PrimePayerGC = (Select payer.PayerReportGroupCode from bill_c_Payer payer WHERE payer.PayerCode = @PrimePC)
+ 
+Set @TCode = (Select TOP 1 h.TripTicketPayerId from bill_t_TripTicketCurrentPayerHistory h where (@CutDate between h.FromDate and h.ToDate or (@CutDate >FromDate and ToDate is null)) and h.RunNumber = @TT order by h.ToDate desc) 
+Set @PCode = (Select tp.PayerCode from bill_t_TripTicketPayer tp where tp.TripTicketPayerId = @TCode)
+Set @AR = (select SUM(ar.Amount) from bill_t_ARTransaction ar
+Fetch
+where ar.RunNumber= @TT
+and ar.TransactionDate<@CutDate)
+Set @StartDate= (Select TOP 1 h.FromDate from bill_t_TripTicketCurrentPayerHistory h where (@CutDate between h.FromDate and h.ToDate or (@CutDate >FromDate and ToDate is null)) and h.RunNumber = @TT order by h.ToDate desc) 
+Set @Age = DATEDIFF(day,@StartDate,@CutDate)
+Set @CurrentPayer = (Select payer.Name from bill_c_Payer payer WHERE payer.PayerCode = @PCode)
+Set @CurrentPayerGC = (Select payer.PayerReportGroupCode from bill_c_Payer payer WHERE payer.PayerCode = @PCode)
+ 
+Insert into #TempResults Values (@TT,@PrimePayer,@PrimePayerGC,@CurrentPayer,@CurrentPayerGC,@AR,@Age)
+ 
+Fetch Next from Holder into @TT
+END
+Select * from #TempResults
+Close HolderClose
+Deallocate Holder
