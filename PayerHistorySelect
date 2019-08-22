@@ -1,0 +1,45 @@
+begin tran
+update bill_t_TripTicketCurrentPayerHistory 
+set ToDate = '9/1/2016' --ModifiedDate = '2016-09-01 01:20:46.2970000' --FromDate = '2016-09-01 01:20:46.2400000'
+where RunNumber = 'ME-201306009463:1'
+and TripTicketPayerId = '1324415'
+
+
+
+SELECT Distinct ar.*, tr.SystemTransactionType, tr.TransactionTypeCode, tr.Description as TransactionTypeDescription,
+               tr.TransactionTypeGroupCode, trg.Description as TransactionTypeGroupDescription,
+               cmp.Description as CompanyDescription, t.*, tp.PayerCode, cb.CashReceiptBatchId, cb.ModifiedUser as BatchModifiedUser, 
+               cz.Description as ChargeZoneDescription, cp.ClosePayer, cp.BillNextPayer, cp.CashReceiptPaymentId, 
+               cpetp.PayerCode as PayerWhenEntered, cpep.PayerGroupCode as PayerGroupWhenEntered, cpep.PayerReportGroupCode as PayerReportGroupWhenEntered,
+               cpptp.PayerCode as PayerWhenPosted, cppp.PayerGroupCode as PayerGroupWhenPosted, cppp.PayerReportGroupCode as PayerReportGroupWhenPosted, 
+               curpayer.PayerCode as CurrentPayerCode, cpg.PayerGroupCode as CurrentPayerGroupCode, cpg.PayerReportGroupCode as CurrentPayerReportGroupCode 
+FROM bill_t_ARTransaction as ar 
+               LEFT JOIN bill_t_TripTicket t ON ar.RunNumber=t.RunNumber 
+               LEFT JOIN bill_t_TripTicketPayer tp ON ar.TripTicketPayerId=tp.TripTicketPayerId 
+               LEFT JOIN bill_c_Payer pay ON tp.PayerCode=pay.PayerCode 
+               LEFT JOIN bill_t_ARTransactionCharge as arc on ar.ARTransactionId=arc.ARTransactionId 
+               LEFT JOIN bill_t_ARTransactionDetail as ard on ar.ARTransactionId=ard.ARTransactionId 
+               LEFT JOIN bill_m_Charge as cc on arc.ChargeCode=cc.ChargeCode 
+               LEFT JOIN bill_c_TransactionType tr ON ar.TransactionTypeCode=tr.TransactionTypeCode 
+               LEFT JOIN bill_c_TransactionTypeGroup trg ON tr.TransactionTypeGroupCode=trg.TransactionTypeGroupCode
+               LEFT JOIN med_m_Company as cmp on t.CompanyCode=cmp.CompanyCode 
+               LEFT JOIN bill_t_CashReceiptPaymentTransaction pt ON ar.ARTransactionId=pt.ARTransactionId 
+               LEFT JOIN bill_t_CashReceiptPayment cp ON pt.CashReceiptPaymentId = cp.CashReceiptPaymentId
+               LEFT JOIN bill_t_CashReceiptBatch cb ON cp.CashReceiptBatchId = cb.CashReceiptBatchId 
+                LEFT JOIN bill_t_CashReceiptDocument doc ON cb.CashReceiptBatchId = doc.CashReceiptBatchId 
+               LEFT JOIN bill_m_Patient p ON t.PatientId = p.PatientId 
+               LEFT JOIN bill_c_ChargeZone cz ON t.ChargeZoneCode = cz.ChargeZoneCode
+               LEFT JOIN bill_t_TripTicketPayer curpayer ON ar.RunNumber = curpayer.RunNumber AND curpayer.IsCurrent = 1
+               LEFT JOIN bill_c_Payer cpg ON curpayer.PayerCode = cpg.PayerCode
+                LEFT JOIN bill_t_TripTicketCurrentPayerHistory cpe ON ar.RunNumber=cpe.RunNumber AND ar.EnteredDate BETWEEN cpe.FromDate AND ISNULL(cpe.ToDate,'12-31-9999')
+                LEFT JOIN bill_t_TripTicketPayer cpetp ON cpe.TripTicketPayerId=cpetp.TripTicketPayerId
+                LEFT JOIN bill_c_Payer cpep ON cpetp.PayerCode=cpep.PayerCode
+                LEFT JOIN bill_t_TripTicketCurrentPayerHistory cpp ON ar.RunNumber=cpp.RunNumber AND ar.Status=2 AND ar.ModifiedDate BETWEEN cpp.FromDate AND ISNULL(cpp.ToDate,'12-31-9999')
+                LEFT JOIN bill_t_TripTicketPayer cpptp ON cpp.TripTicketPayerId=cpptp.TripTicketPayerId
+                LEFT JOIN bill_c_Payer cppp ON cpptp.PayerCode=cppp.PayerCode
+                WHERE t.Template=0
+and t.RunNumber = 'ME-201306009463:1'
+
+
+rollback
+commit
