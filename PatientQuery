@@ -1,0 +1,15 @@
+--Patients for specific time frame
+select tt.RunNumber, tt.DateOfService, p.PatientId, p.FirstName,p.LastName,p.SocialSecurityNumber,p.DateOfBirth,p.Gender,p.Phone1,p.Phone2, pay.Name as PrimaryPayer, tpp.PayerCode,
+ad.AddressLine1,ad.AddressLine2,ad.City, ad.StateCode,ad.ZipCode, tt.DestinationLocationResourceCode, tt.DiagnosisCode1, Sum(ar.Amount) as AmountDue 
+from bill_t_TripTicket tt 
+join bill_m_Patient p on tt.PatientId = p.PatientId
+join bill_m_PatientPayer pp on pp.PatientId = p.PatientId
+join bill_t_TripTicketPayer tpp on tpp.RunNumber = tt.RunNumber
+join bill_c_Payer pay on pay.PayerCode = tpp.PayerCode
+join bill_t_ARTransaction ar on ar.RunNumber = tt.RunNumber
+join FWK_m_Address ad on ad.AddressId = p.DefaultAddressId
+where tt.DateOfService >= '3/16/2016' and tt.DateOfService<='5/31/2016'
+and tpp.PayerCode in (SELECT TOP 1 PayerCode FROM bill_t_TripTicketPayer subp WHERE subp.RunNumber=tt.RunNumber ORDER BY Priority)
+group by tt.RunNumber, tt.DateOfService, p.PatientId, p.FirstName,p.LastName,p.SocialSecurityNumber,p.DateOfBirth,p.Gender,p.Phone1,p.Phone2, pay.Name, tpp.PayerCode,
+ad.AddressLine1,ad.AddressLine2,ad.City, ad.StateCode,ad.ZipCode,tt.DestinationLocationResourceCode, tt.DiagnosisCode1
+order by tt.DateOfService
